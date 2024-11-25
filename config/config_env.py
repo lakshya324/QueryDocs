@@ -26,5 +26,14 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM
 BHASHINI_API_URL = os.getenv("BHASHINI_API_URL")
 BHASHINI_API_KEY = os.getenv("BHASHINI_API_KEY")
 
-#* LLM Configuration [Ollama Llama]
-LLAMA_MODEL = os.getenv("LLAMA_MODEL", "llama3.2")
+
+#* AWS Configuration
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+
+#* LLM Configuration [Ollama Llama] {AWS Bedrock}
+# LLAMA_MODEL = os.getenv("LLAMA_MODEL", "llama3.2")
+MODEL_ID = os.getenv("AWS_BEDROCK_MODEL_ID")
+BEDROCK_SERVICE_NAME = os.getenv("AWS_BEDROCK_SERVICE_NAME", "bedrock-runtime")
+BEDROCK_REGION_NAME = os.getenv("AWS_BEDROCK_REGION_NAME", "us-west-2")
