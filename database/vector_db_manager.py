@@ -11,11 +11,13 @@ try:
 except Exception:
     qdrant.create_collection(
         collection_name=QDRANT_COLLECTION_NAME,
-        vectors_config=VectorParams(size=generate_embedding(["test"]).shape[-1], distance=Distance.COSINE),
+        vectors_config=VectorParams(
+            size=generate_embedding(["test"]).shape[-1], distance=Distance.COSINE
+        ),
     )
 
 
-def add_document(chanks: list[str], vectors: list[list[float]]) -> dict:
+def add_document(chanks: list[str], vectors: list[list[float]], priority: int) -> dict:
     """
     Add a document to the Qdrant database.
     """
@@ -30,9 +32,14 @@ def add_document(chanks: list[str], vectors: list[list[float]]) -> dict:
         chunks_ids.append(id)
         points.append(
             PointStruct(
-                id= id,
+                id=id,
                 vector=vector,
-                payload={"content": chanks[idx], "doc_id": doc_id, "chunk_id": idx},
+                payload={
+                    "content": chanks[idx],
+                    "doc_id": doc_id,
+                    "chunk_id": idx,
+                    "priority": priority,
+                },
             )
         )
     qdrant.upsert(collection_name=QDRANT_COLLECTION_NAME, points=points)
@@ -43,15 +50,25 @@ def query_db(query_embedding: list[float]) -> list[str]:
     """
     Query the Qdrant database for similar vectors.
     """
-    results = qdrant.search(
-        collection_name=QDRANT_COLLECTION_NAME,
-        query_vector=query_embedding,
-        limit=VECTOR_QUERY_SIZE,
-    )
+    try:
+        results = qdrant.search(
+            collection_name=QDRANT_COLLECTION_NAME,
+            query_vector=query_embedding,
+            limit=VECTOR_QUERY_SIZE,
+        )
+        if not results:
+            return []
 
-    return [
-        result.payload["content"] for result in sorted(results, key=lambda x: x.score, reverse=True)
-    ]
+        return [
+            result.payload["content"]
+            for result in sorted(
+                results,
+                key=lambda x: (x.payload.get("priority", 1), -x.score), # Ascending priority, descending score
+                # reverse=True,
+            )
+        ]
+    except Exception as e:
+        raise RuntimeError(f"Error querying the database: {e}")
 
 
 def delete_document(doc_id):
@@ -64,5 +81,6 @@ def delete_document(doc_id):
         limit=1000,
     )
 
-    qdrant.delete(collection_name=QDRANT_COLLECTION_NAME, ids=[result.id for result in results])
-    
+    qdrant.delete(
+        collection_name=QDRANT_COLLECTION_NAME, ids=[result.id for result in results]
+    )
