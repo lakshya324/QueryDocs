@@ -18,23 +18,27 @@ async def root():
 async def upload_document(file: UploadFile,singleChunk: bool = Query(False),priority: int = Query(1)):
     """
     Upload a document (PDF or text) and store it in chunks after processing.
+    singleChunk: If True, the document will be processed in a single chunk. [Default: False] {Query Parameter}
+    priority: The priority of the document (1-5). [Default: 1] {Query Parameter}
     """
     try:
         if priority < 1 or priority > 5:
             raise Exception("Priority should be between 1 and 5")
         
+        print(">",singleChunk, priority)
         # * Extract text from file (supports PDF and plain text)
         file_content = extract_text(file)
         
-        print(file_content[:100])
+        print(len(file_content),">",file_content[:1000])
 
         # * Detect language of whole document
         detected_language = detect_language(file_content)
 
         # * Chunk the text into smaller parts for vectorization
         if singleChunk == True:
-            if len(file_content) > 1000:
-                raise Exception("File is too large to be processed in a single chunk")
+            # Todo: Implement to handle large files [can add text summarization]
+            # if len(file_content) > 1000:
+            #     raise Exception("File is too large to be processed in a single chunk")
             chunks = [file_content]
         else:
             chunks = chunk_text(file_content)
@@ -100,14 +104,20 @@ async def query_document(body: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/delete")
+@app.delete("/delete/{doc_id}")
 async def delete_document_route(doc_id: str):
     """
     Delete a document by its ID.
     """
     try:
-        delete_document(doc_id)
-        return {"message": "Document deleted successfully"}
+        if not doc_id:
+            raise Exception("Document ID is required")
+        metadata = delete_document(doc_id)
+        return {
+            "message": "Document deleted successfully",
+            "success": True,
+            "data": metadata,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

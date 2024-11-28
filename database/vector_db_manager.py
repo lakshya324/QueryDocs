@@ -1,5 +1,5 @@
 import uuid
-from qdrant_client.http.models import PointStruct
+from qdrant_client.http.models import PointStruct,Filter, FieldCondition, Match
 from config.config_qdrant import qdrant
 from qdrant_client.models import Distance, VectorParams
 from config.config_env import QDRANT_COLLECTION_NAME, VECTOR_QUERY_SIZE
@@ -63,7 +63,10 @@ def query_db(query_embedding: list[float]) -> list[str]:
             result.payload["content"]
             for result in sorted(
                 results,
-                key=lambda x: (x.payload.get("priority", 1), -x.score), # Ascending priority, descending score
+                key=lambda x: (
+                    x.payload.get("priority", 1),
+                    -x.score,
+                ),  # Ascending priority, descending score
                 # reverse=True,
             )
         ]
@@ -75,12 +78,35 @@ def delete_document(doc_id):
     """
     Delete all chunks of a document from the Qdrant database.
     """
-    results = qdrant.search(
-        collection_name=QDRANT_COLLECTION_NAME,
-        query_vector={"payload.doc_id": doc_id},
-        limit=1000,
-    )
+    try:
+        # const = 100
+        # results = qdrant.search(
+        #     collection_name=QDRANT_COLLECTION_NAME,
+        #     query_vector=[0.0] * generate_embedding(["test"]).shape[-1],  # Dummy vector
+        #     limit=const,
+        #     query_filter={
+        #         "must": [
+        #             {
+        #                 "key": "doc_id",  # Metadata field for filtering
+        #                 "match": {"value": doc_id},
+        #             }
+        #         ]
+        #     },
+        # )
+        # print(results)
 
-    qdrant.delete(
-        collection_name=QDRANT_COLLECTION_NAME, ids=[result.id for result in results]
-    )
+
+        results = qdrant.delete(
+            collection_name=QDRANT_COLLECTION_NAME,
+            points_selector=Filter(
+                must=[FieldCondition(key="doc_id", match=Match(value=doc_id))]
+            ),
+        )
+
+        return {
+            "doc_id": doc_id,
+            "chunks_deleted": len(results),
+            "chunks": results,
+        }
+    except Exception as e:
+        raise RuntimeError(f"Error querying the database: {e}")
